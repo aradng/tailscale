@@ -1,0 +1,24 @@
+network:
+  ethernets:
+    eth1:
+      addresses:
+        - SECONDARY_CIDR
+      nameservers:
+        addresses: [1.1.1.1, 1.0.0.1]
+      routes:
+        - to: default
+          via: SECONDARY_GATEWAY
+          table: 200
+      routing-policy:
+        - from: SECONDARY_IP
+          table: 200
+          priority: 100
+          mark: 524288    # tailscale 0x80000 set mark
+    eth0:
+      addresses:
+        - PRIMARY_CIDR
+      nameservers:
+        addresses: [1.1.1.1, 1.0.0.1]
+      routes:
+        - to: default
+          via: PRIMARY_GATEWAY
