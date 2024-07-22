@@ -2,7 +2,7 @@
 # install iptables-persistant
 echo iptables-persistent iptables-persistent/autosave_v4 boolean false | sudo debconf-set-selections
 echo iptables-persistent iptables-persistent/autosave_v6 boolean false | sudo debconf-set-selections
-apt update && apt-get -y install iptables-persistent ipcalc
+apt update && apt-get -y install iptables-persistent ipcalc ipset
 
 # Source the config.env file from the repo base directory
 if [ -f "$(dirname "$0")/../.env" ]; then
@@ -34,10 +34,12 @@ check_and_amend_rules() {
 SERVICES=$(echo $SERVICES | sed -E 's/\[|\]//g')
 
 # masquerade egress for local subnet and allow public access to machine while using exit-node
+ipset create bypass nethash
 iptables -t mangle -N allow-outgoing
 rules_to_check=(
     "POSTROUTING -t nat -o tailscale0 -j MASQUERADE"
     "allow-outgoing -t mangle -p icmp -j MARK --set-xmark 0x80000"
+    PREROUTING -t mangle -m set --match-set bypass dst -j MARK --set-mark 100
 )
 # Iterate over each service in the SERVICES variable
 IFS=',' # Set Internal Field Separator to comma
@@ -53,9 +55,15 @@ done
 
 check_and_amend_rules "${rules_to_check[@]}"
 
-# iptables persistence
+# iptables/ipset persistence
+cp services/ipset-persistent.service /etc/systemd/system
+cp services/ipset-fetch.service /etc/systemd/system
 iptables-save > /etc/iptables/rules.v4
 ip6tables-save > /etc/iptables/rules.v6
+ipset save > /etc/iptables/ipset
+systemctl enable ipset-persistent.service
+# systemctl enable ipset-fetch.service
+
 
 # enable packet forwarding
 echo 'net.ipv4.ip_forward = 1' > /etc/sysctl.d/99-tailscale.conf

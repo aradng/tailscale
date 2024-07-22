@@ -1,0 +1,18 @@
+[Unit]
+Description=fetch CIDR list based on country code periodicly
+Before=network.target
+
+After=network.target
+After=network-online.target
+
+ConditionFileNotEmpty=/etc/iptables/ipset
+
+[Service]
+Type=oneshot
+ExecStart=[Path to ip2loc.py]
+
+[Install]
+WantedBy=multi-user.target
+
+RequiredBy=netfilter-persistent.service
+RequiredBy=ufw.service
