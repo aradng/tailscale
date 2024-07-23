@@ -38,13 +38,13 @@ ipset create bypass nethash
 iptables -t mangle -N allow-outgoing
 rules_to_check=(
     "POSTROUTING -t nat -o tailscale0 -j MASQUERADE"
-    "allow-outgoing -t mangle -p icmp -j MARK --set-xmark 0x80000"
+    "allow-outgoing -t mangle -p icmp ! -s $PRIMARY_SUBNET -j MARK --set-xmark 0x80000"
     "PREROUTING -t mangle -m set --match-set bypass dst -j MARK --set-mark 100"
     # set mss to 1200 for tailscale0 mtu cap of 1280
     "FORWARD -t mangle -o tailscale0 -p tcp -m tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200"
 )
 # Iterate over each service in the SERVICES variable
-IFS=',' # Set Internal Field Separator to comma
+
 for service in $SERVICES; do
   # Split the service into protocol and port
   PROTOCOL=$(echo "$service" | cut -d':' -f1)
@@ -82,6 +82,7 @@ sed -i "s|PRIMARY_IFACE|$PRIMARY_IFACE|g" tailscale_config.yaml
 sed -i "s|PRIMARY_CIDR|$PRIMARY_CIDR|g" tailscale_config.yaml
 sed -i "s|PRIMARY_GATEWAY|$PRIMARY_GATEWAY|g" tailscale_config.yaml
 mv tailscale_config.yaml /etc/netplan
+chmod 600 /etc/netplan/tailscale_config.yaml
 netplan try
 
 echo "tailscale up --login-server=https://headscale.com --advertise-route=$PRIMARY_SUBNET,$SECONDARY_SUBNET --exit-node-allow-lan-access --accept-routes"

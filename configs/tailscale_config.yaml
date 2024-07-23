@@ -10,7 +10,7 @@ network:
           via: SECONDARY_GATEWAY
           table: 200
       routing-policy:
-      - from: 0.0.0.0/0
+        - from: 0.0.0.0/0
           table: 254 # main table
           priority: 100
           mark: 100 # ipset mark : 0x64
