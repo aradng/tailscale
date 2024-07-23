@@ -39,7 +39,9 @@ iptables -t mangle -N allow-outgoing
 rules_to_check=(
     "POSTROUTING -t nat -o tailscale0 -j MASQUERADE"
     "allow-outgoing -t mangle -p icmp -j MARK --set-xmark 0x80000"
-    PREROUTING -t mangle -m set --match-set bypass dst -j MARK --set-mark 100
+    "PREROUTING -t mangle -m set --match-set bypass dst -j MARK --set-mark 100"
+    # set mss to 1200 for tailscale0 mtu cap of 1280
+    "FORWARD -t mangle -o tailscale0 -p tcp -m tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200"
 )
 # Iterate over each service in the SERVICES variable
 IFS=',' # Set Internal Field Separator to comma

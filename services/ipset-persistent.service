@@ -5,7 +5,6 @@ Before=network.target
 # ipset sets should be loaded before iptables
 # Because creating iptables rules with names of non-existent sets is not possible
 Before=netfilter-persistent.service
-Before=ufw.service
 
 ConditionFileNotEmpty=/etc/iptables/ipset
 
@@ -13,10 +12,14 @@ ConditionFileNotEmpty=/etc/iptables/ipset
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/sbin/ipset restore -exist -file /etc/iptables/ipset
+ExecStart=/bin/echo "ipset restore"
 # Uncomment to save changed sets on reboot
 # ExecStop=/sbin/ipset save -file /etc/iptables/ipset
+# ExecStop=/bin/echo "save ipset"
 ExecStop=/sbin/ipset flush
+ExecStop=/bin/echo "ipset flush"
 ExecStopPost=/sbin/ipset destroy
+ExecStopPost=/bin/echo "ipset destroy"
 
 [Install]
 WantedBy=multi-user.target
