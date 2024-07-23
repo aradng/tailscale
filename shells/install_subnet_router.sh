@@ -21,11 +21,11 @@ check_and_amend_rules() {
     for rule in "${rules[@]}"; do
         # Check if the rule exists
         if iptables -C ${rule} >/dev/null 2>&1; then
-            echo "Rule '${rule}' already exists."
+            echo "Rule ${rule} already exists."
         else
             # Amend the rule when it doesn't exist
             iptables -A ${rule}
-            echo "Rule '${rule}' has been added."
+            echo "Rule ${rule} has been added."
         fi
     done
 }
@@ -74,9 +74,11 @@ sysctl -p /etc/sysctl.d/99-tailscale.conf
 
 # custom netplan for tailscale compatibility
 cp ./configs/tailscale_config.yaml .
+sed -i "s|SECONDARY_IFACE|$SECONDARY_IFACE|g" tailscale_config.yaml
 sed -i "s|SECONDARY_CIDR|$SECONDARY_CIDR|g" tailscale_config.yaml
 sed -i "s|SECONDARY_GATEWAY|$SECONDARY_GATEWAY|g" tailscale_config.yaml
 sed -i "s|SECONDARY_IP|$(echo "$SECONDARY_CIDR" | sed 's#/.*##')|g" tailscale_config.yaml
+sed -i "s|PRIMARY_IFACE|$PRIMARY_IFACE|g" tailscale_config.yaml
 sed -i "s|PRIMARY_CIDR|$PRIMARY_CIDR|g" tailscale_config.yaml
 sed -i "s|PRIMARY_GATEWAY|$PRIMARY_GATEWAY|g" tailscale_config.yaml
 mv tailscale_config.yaml /etc/netplan

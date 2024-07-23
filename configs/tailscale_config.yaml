@@ -1,6 +1,6 @@
 network:
   ethernets:
-    eth1:
+    SECONDARY_IFACE:
       addresses:
         - SECONDARY_CIDR
       nameservers:
@@ -18,9 +18,7 @@ network:
           table: 200
           priority: 200
           mark: 524288 # tailscale exit mark : 0x80000
-    ens19:
-
-    eth0:
+    PRIMARY_IFACE:
       addresses:
         - PRIMARY_CIDR
       nameservers:
