@@ -39,16 +39,15 @@ check_and_amend_rules() {
 # Extract the SERVICES variable, removing the square brackets
 SERVICES=$(echo $SERVICES | sed -E 's/\[|\]//g')
 
-IFS=',' # Set Internal Field Separator to comma
 # Iterate over each service in the SERVICES variable
+IFS=',' # Set Internal Field Separator to comma
 for service in $SERVICES; do
   # Split the service into protocol and port
   PROTOCOL=$(echo "$service" | cut -d':' -f1)
   PORT=$(echo "$service" | cut -d':' -f2)
 
   # Add the rule to allow packets out for secondary subnet/ ignore primary subnet (tailscale will handle it)
-  rules_to_check+=("allow-outgoing -t mangle -p $PROTOCOL ! -s $PRIMARY_SUBNET --sport $PORT -j MARK --set-xmark 0x80000")
-#   rules_to_check+=("allow-outgoing -t mangle -p $PROTOCOL -d $PRIMARY_SUBNET --sport $PORT -j MARK --set-xmark 0x80000")
+  rules_to_check+=("allow-outgoing -t mangle -p $PROTOCOL --sport $PORT -j MARK --set-xmark 0x80000")
 done
 IFS=$' \t\n'
 
@@ -56,8 +55,12 @@ IFS=$' \t\n'
 ipset create bypass nethash
 iptables -t mangle -N allow-outgoing
 rules_to_check=(
+    "OUTPUT -t mangle -j allow-outgoing"
     "POSTROUTING -t nat -o tailscale0 -j MASQUERADE"
     "allow-outgoing -t mangle -p icmp ! -s $PRIMARY_SUBNET -j MARK --set-xmark 0x80000"
+    "allow-outgoing -t mangle -d 100.64.0.0/10 -j RETURN"
+    "allow-outgoing -t mangle -s 100.64.0.0/10 -j RETURN"
+    "allow-outgoing -t mangle -p icmp -j MARK --set-xmark 0x80000"
     "PREROUTING -t mangle -m set --match-set bypass dst -j MARK --set-mark 100"
     # set mss to 1200 for tailscale0 mtu cap of 1280
     "FORWARD -t mangle -o tailscale0 -p tcp -m tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200"
