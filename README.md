@@ -38,7 +38,7 @@ A script is available that adds region-specific CIDRs to the ipset for localized
 
 Additionally, there is an ipset-fetch.service that can be installed for periodic fetching and updating of these rules, as region-specific ASNs may change over time.
 
-The ip2loc.py script is currently basic and a prototype. Contributions and pull requests (PRs) are welcome to improve it!
+The ip2loc.py script is currently basic and a prototype. Contributions and PRs are welcome to improve it!
 
 To execute the setup script, run:
 
@@ -62,8 +62,62 @@ To execute the setup script, run:
 ./install_client.sh
 ```
 
-### References
+# Troubleshooting
+## Common issues
+- always check `tailscale status` for healthcheck issues
+- check `journalctl -fu tailscaled` or `debug daemon-logs --verbose 5`
+- if stuck trying tailscale fallback dns resolvers | stuck on DoLogin can stop in each stage if resolved:
+    - `tailscale set --exit-node=`
+    - `tailscale set --accept-dns=false`
+    - `cat /etc/resolv.conf` check change has propagated
+    - `tailscale debug restun`
+    - `tailscale debug rebind`
+    - `systemctl restart tailscaled`
+    - if there are iptables/nftable conflicts (specially ipv6) in healthcheck reboot the machine
+    - if issue is still unresolved check for node to controlplane connectivity
+- if advertised-routes/exit-node create/update is not registering in headscale or propagating:
+    - `systemctl restart tailscaled` on advertiser & clients
+    - `tailscale up --force-reauth` if issue still persists
+- during exit-node usage:
+    - if you have problem accessing your local subnet/loopback iface:
+        - `tailscale set --exit-node-allow-lan-access`
+    - if tailscale magic-dns/split-horizen dns is not working or advertised routes are not visible:
+        - check `tailscale debug resolve <ip>`
+        - check `tailscale dns query <ip>` ensure its correct pathing conforming to controlplane setup
+        - on exit-node machine:
+            - `tailscale set --accept-dns`
+            - `tailscale set --accept-routes`
+    - if connection stuck on relayed:
+        - `tailscale ping <exit-node-tailnet-ip>` force tailscale to look for direct connection
+        - `tailscale netcheck` check for hairpinning or udp support issues
+        - `tailscale netcheck` check on exit-node 
+        - ensure no firewalls are configured on each client/upstream nat (port `41641`) if `randomize_port` is false or enable `upnp/nat-pmp`
+        - provision another exit-node (might be censored)
+- if unsure about client state:
+    - `taiscale debug perfs` for client state
+    - `tailscale debug netmap` for controlplane posture/acl encforcements
+- if hairloss:
+    - `tailscale debug capture`    
 
+## Bad Dobby (Donts)
+- `tailscale debug capture`
+- do not install tailscale clients on subnet-router clients
+    - if its neccesary:
+        - DO NOT accept routes
+        - DO NOT set client exit-node on corresponding subnet router or vice verse (switching loop)
+        - DO NOT advertise-routes on HA setup
+        - DO NOT advertise-exit-node unless you are well-versed in iptables `:)`
+- do not setup exit-nodes on an advertised-subnet by another primary
+    - if its neccesary:
+        - advertise subnet on exit-node aswell
+        - do not allow advertised-route from exit-node in headscale
+## DOs
+- check tailscale/headscale changelog. number of features this repo implements have been cut in third and are present in the client/controlplane due to these updates.
+- update headscale regularly w/ db backups
+- accumulate client metrics for better network observability
+- dont go cheap on controlplane's machine
+
+### References
 - [Tailscale Subnet Router Setup](https://tailscale.com/kb/1019/subnets)
 - [Tailscale Subnet Router Public IP Service Exposition](https://github.com/tailscale/tailscale/issues/10940#issuecomment-1909182044)
 - [LXC Network K8s Compatibility](https://chris.heald.me/2018/docker-default-routes/)
