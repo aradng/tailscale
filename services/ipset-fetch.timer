@@ -1,0 +1,10 @@
+[Unit]
+Description=Fetch CIDR list based on country code periodically [timer]
+Requires=ipset-fetch.service
+
+[Timer]
+Unit=ipset-fetch.service
+OnCalendar=*-*-1 00:00:00
+
+[Install]
+WantedBy=timers.target

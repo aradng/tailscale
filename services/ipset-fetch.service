@@ -1,18 +1,15 @@
 [Unit]
-Description=fetch CIDR list based on country code periodicly
-Before=network.target
-
+Description=Fetch CIDR list based on country code periodically
 After=network.target
 After=network-online.target
-
-ConditionFileNotEmpty=/etc/iptables/ipset
+After=netfilter-persistent.service
+After=ipset-persistent.service
+Wants=ipset-fetch.timer
 
 [Service]
 Type=oneshot
-ExecStart=[Path to ip2loc.py]
+ExecStart=/usr/bin/bash ~/tailscale/shells/fetch-ipset-from-country.bash ir
+ExecStart=/usr/bin/bash ~/tailscale/shells/fetch-ipset-from-asn.bash 32590
 
 [Install]
 WantedBy=multi-user.target
-
-RequiredBy=netfilter-persistent.service
-RequiredBy=ufw.service
