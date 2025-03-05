@@ -19,8 +19,8 @@ else
 fi
 
 # calculate subnets from CIDR
-PRIMARY_SUBNET=$(ipcalc -n $PRIMARY_CIDR | grep Network | awk '{print $2}')
-SECONDARY_SUBNET=$(ipcalc -n $SECONDARY_CIDR | grep Network | awk '{print $2}')
+PRIVATE_SUBNET=$(ipcalc -n $PRIVATE_CIDR | grep Network | awk '{print $2}')
+PUBLIC_SUBNET=$(ipcalc -n $PUBLIC_CIDR | grep Network | awk '{print $2}')
 
 check_and_amend_rules() {
     local rules=("$@")
@@ -36,34 +36,24 @@ check_and_amend_rules() {
     done
 }
 
-# Extract the SERVICES variable, removing the square brackets
-SERVICES=$(echo $SERVICES | sed -E 's/\[|\]//g')
 
-# Iterate over each service in the SERVICES variable
-IFS=',' # Set Internal Field Separator to comma
-for service in $SERVICES; do
-  # Split the service into protocol and port
-  PROTOCOL=$(echo "$service" | cut -d':' -f1)
-  PORT=$(echo "$service" | cut -d':' -f2)
-
-  # Add the rule to allow packets out for secondary subnet/ ignore primary subnet (tailscale will handle it)
-  rules_to_check+=("allow-outgoing -t mangle -p $PROTOCOL --sport $PORT -j MARK --set-xmark 0x80000")
-done
-IFS=$' \t\n'
+ipset create bypass list:set
+ipset create bypass_ports bitmap:port range 0-65535 counters comment
+echo $SERVICES | tr ',' '\n' | sed 's/^/add bypass_ports /' | ipset restore -!
 
 # masquerade egress for local subnet and allow public access to machine while using exit-node
-ipset create bypass nethash
 iptables -t mangle -N allow-outgoing
 rules_to_check=(
     "OUTPUT -t mangle -j allow-outgoing"
     "POSTROUTING -t nat -o tailscale0 -j MASQUERADE"
-    "allow-outgoing -t mangle -p icmp ! -s $PRIMARY_SUBNET -j MARK --set-xmark 0x80000"
     "allow-outgoing -t mangle -d 100.64.0.0/10 -j RETURN"
     "allow-outgoing -t mangle -s 100.64.0.0/10 -j RETURN"
     "allow-outgoing -t mangle -p icmp -j MARK --set-xmark 0x80000"
+    "allow-outgoing -t mangle -p tcp -m set --match-set bypass_ports src -j MARK --set-xmark 0x80000/0xffffffff"
+    "allow-outgoing -t mangle -p udp -m set --match-set bypass_ports src -j MARK --set-xmark 0x80000/0xffffffff"
     "PREROUTING -t mangle -m set --match-set bypass dst -j MARK --set-mark 100"
-    # set mss to 1200 for tailscale0 mtu cap of 1280
-    "FORWARD -t mangle -o tailscale0 -p tcp -m tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200"
+    "OUTPUT -t mangle -m set --match-set bypass dst -j MARK --set-xmark 0x64/0xffffffff"
+    "FORWARD -t mangle -o tailscale0 -p tcp -m tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu"
 )
 
 check_and_amend_rules "${rules_to_check[@]}"
@@ -87,16 +77,15 @@ echo -e "${Green} Packet forwarding has been enabled.${NC}"
 
 # custom netplan for tailscale compatibility
 cp ./configs/tailscale_config.yaml .
-sed -i "s|SECONDARY_IFACE|$SECONDARY_IFACE|g" tailscale_config.yaml
-sed -i "s|SECONDARY_CIDR|$SECONDARY_CIDR|g" tailscale_config.yaml
-sed -i "s|SECONDARY_GATEWAY|$SECONDARY_GATEWAY|g" tailscale_config.yaml
-sed -i "s|SECONDARY_IP|$(echo "$SECONDARY_CIDR" | sed 's#/.*##')|g" tailscale_config.yaml
-sed -i "s|PRIMARY_IFACE|$PRIMARY_IFACE|g" tailscale_config.yaml
-sed -i "s|PRIMARY_CIDR|$PRIMARY_CIDR|g" tailscale_config.yaml
-sed -i "s|PRIMARY_GATEWAY|$PRIMARY_GATEWAY|g" tailscale_config.yaml
+sed -i "s|PUBLIC_IFACE|$PUBLIC_IFACE|g" tailscale_config.yaml
+sed -i "s|PUBLIC_CIDR|$PUBLIC_CIDR|g" tailscale_config.yaml
+sed -i "s|PUBLIC_GATEWAY|$PUBLIC_GATEWAY|g" tailscale_config.yaml
+sed -i "s|PRIVATE_IFACE|$PRIVATE_IFACE|g" tailscale_config.yaml
+sed -i "s|PRIVATE_CIDR|$PRIVATE_CIDR|g" tailscale_config.yaml
 mv tailscale_config.yaml /etc/netplan
 chmod 600 /etc/netplan/tailscale_config.yaml
 echo -e "${Green} Custom netplan configuration has been added.${NC}"
 netplan try
 
-echo -e "${Blue}tailscale up --login-server=https://headscale.com --advertise-route=$PRIMARY_SUBNET,$SECONDARY_SUBNET --exit-node-allow-lan-access --accept-routes${NC}"
+echo -e "${Blue}tailscale up --login-server=https://headscale.com --authkey TS_AUTHKEY --advertise-routes=$PRIVATE_SUBNET \
+--exit-node-allow-lan-access --accept-routes --accept-dns --webclient --auto-update --advertise-tags=tag:subnet-router ${NC}"

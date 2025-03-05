@@ -1,28 +1,18 @@
 network:
   ethernets:
-    SECONDARY_IFACE:
+    PUBLIC_IFACE:
       addresses:
-        - SECONDARY_CIDR
+        - PUBLIC_CIDR
       nameservers:
         addresses: [1.1.1.1, 1.0.0.1]
       routes:
         - to: default
-          via: SECONDARY_GATEWAY
-          table: 200
+          via: PUBLIC_GATEWAY
       routing-policy:
         - from: 0.0.0.0/0
           table: 254 # main table
           priority: 100
           mark: 100 # ipset mark : 0x64
-        - from: SECONDARY_IP
-          table: 200
-          priority: 200
-          mark: 524288 # tailscale exit mark : 0x80000
-    PRIMARY_IFACE:
+    PRIVATE_IFACE:
       addresses:
-        - PRIMARY_CIDR
-      nameservers:
-        addresses: [1.1.1.1, 1.0.0.1]
-      routes:
-        - to: default
-          via: PRIMARY_GATEWAY
+        - PRIVATE_CIDR

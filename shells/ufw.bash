@@ -82,12 +82,7 @@ apply_and_check "default allow routed" "Docker (allow routed)"
 apply_and_check "allow http" "HTTP (port 80)"
 apply_and_check "allow https" "HTTPS (port 443)"
 
-# SSE
-apply_and_check "allow 2112" "SSE (port 2112)"
-apply_and_check "allow 2113" "SSE (port 2113)"
-
 # SSH
-apply_and_check "allow 6543/tcp" "Custom SSH (port 6543)"
 apply_and_check "allow OpenSSH" "OpenSSH"
 
 # Subnet

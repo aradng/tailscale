@@ -142,16 +142,14 @@ class DigitalOceanProvider:
         # wait for droplet to boot
         cmd = (
             "scp -o StrictHostKeyChecking=no ../exit-node/docker-compose.yaml"
-            f" ../exit-node/.env docker_install.sh root@{droplet.ip_address}:~"
+            f" .env install.bash root@{droplet.ip_address}:~"
         )
 
         logging.info(f"shipping files to {droplet.ip_address}")
         subprocess.run(cmd, shell=True, check=True, capture_output=True)
         cmd = (
             f"ssh -o StrictHostKeyChecking=no root@{droplet.ip_address} -t "
-            "'bash docker_install.sh "
-            "&& docker compose up -d "
-            "&& exit 0'"
+            "'env $(cat .env | xargs) bash install.bash && exit 0'"
         )
         logging.info(f"deploying on {droplet.ip_address}")
         subprocess.run(cmd, shell=True, check=True, capture_output=True)
@@ -162,7 +160,7 @@ class DigitalOceanProvider:
     ) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
         cmd = (
             f"ssh -o StrictHostKeyChecking=no root@{droplet.ip_address} -t "
-            "docker compose exec tailscale tailscale ip --4"
+            "tailscale ip --4"
         )
         return ipaddress.ip_address(
             subprocess.check_output(cmd, shell=True, text=True).strip()
@@ -180,14 +178,10 @@ class DigitalOceanProvider:
     ) -> bool:
         tailscale_ip = self.get_tailscale_ip(droplet)
         logging.info(f"Checking exit node {droplet.ip_address}:{tailscale_ip}")
-        cmd = (
-            "ssh -o StrictHostKeyChecking=no tailscale-afra "
-            f"tailscale ping {tailscale_ip}"
-        )
-
+        cmd = f"tailscale ping {tailscale_ip}"
+               
         pattern = r"(\d+\.\d+\.\d+\.\d+):(\d+)"
         b = subprocess.check_output(cmd, shell=True, text=True).strip()
-        print(b)
         logging.debug(b)
         match = re.search(pattern, b)
         if match:

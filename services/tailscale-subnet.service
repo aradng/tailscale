@@ -1,9 +1,0 @@
-[Unit]
-Description=Setup network rules in LXC container for compatibility with multi-interface networking
-
-[Service]
-Type=oneshot
-ExecStart=/etc/network/tailscale_subnet.sh
-
-[Install]
-WantedBy=multi-user.target
